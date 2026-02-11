@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, render_template
 from flask_cors import CORS
 import pymysql
 import paho.mqtt.publish as publish
-from flask import render_template
 
 app = Flask(__name__)
 CORS(app)
@@ -29,11 +28,12 @@ def get_db():
         cursorclass=pymysql.cursors.DictCursor
     )
 
+# ========== DASHBOARD WEB ==========
 @app.route('/')
 def index():
     return render_template('index.html')
 
-
+# ========== API ENDPOINTS ==========
 @app.route('/api/dashboard', methods=['GET'])
 def dashboard():
     conn = get_db()
@@ -57,15 +57,34 @@ def alarm_control():
     data = request.get_json()
     state = data.get('state', 'OFF')
     
-    publish.single(
-        "server-room/alarm/cmd",
-        payload=state,
-        hostname=MQTT_BROKER,
-        port=MQTT_PORT,
-        auth={'username': MQTT_USER, 'password': MQTT_PASS}
-    )
+    try:
+        publish.single(
+            "server-room/alarm/cmd",
+            payload=state,
+            hostname=MQTT_BROKER,
+            port=MQTT_PORT,
+            auth={'username': MQTT_USER, 'password': MQTT_PASS}
+        )
+        return jsonify({"status": "ok", "alarm": state})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/buzzer', methods=['POST'])
+def buzzer_control():
+    data = request.get_json()
+    state = data.get('state', 'OFF')
     
-    return jsonify({"status": "ok", "alarm": state})
+    try:
+        publish.single(
+            "server-room/buzzer/cmd",
+            payload=state,
+            hostname=MQTT_BROKER,
+            port=MQTT_PORT,
+            auth={'username': MQTT_USER, 'password': MQTT_PASS}
+        )
+        return jsonify({"status": "ok", "buzzer": state})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/api/history/<sensor>', methods=['GET'])
 def history(sensor):

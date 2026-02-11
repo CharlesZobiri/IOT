@@ -49,7 +49,13 @@
             font-weight: bold;
         }
         .card-unit { font-size: 0.8em; color: #666; text-align: center; margin-top: 5px; }
-        .controls { display: flex; gap: 15px; justify-content: center; flex-wrap: wrap; }
+        .controls { 
+            display: flex; 
+            gap: 15px; 
+            justify-content: center; 
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
         .btn {
             padding: 15px 30px;
             font-size: 1.1em;
@@ -62,7 +68,16 @@
         }
         .btn-alarm { background: #e74c3c; color: white; }
         .btn-alarm.active { background: #27ae60; }
+        .btn-buzzer { background: #f39c12; color: white; }
+        .btn-buzzer.active { background: #e67e22; }
         .btn:hover { transform: scale(1.05); box-shadow: 0 8px 20px rgba(0,0,0,0.3); }
+        .controls-info {
+            color: white;
+            text-align: center;
+            font-size: 0.85em;
+            margin-bottom: 10px;
+            opacity: 0.9;
+        }
         .timestamp { color: white; text-align: center; margin-top: 20px; font-size: 0.9em; }
     </style>
 </head>
@@ -107,8 +122,18 @@
             </div>
         </div>
         
+        <div class="controls-info">
+            🚨 Alarme Distance : Buzzer si distance < 50cm | 🔔 Buzzer Manuel : Contrôle direct
+        </div>
+        
         <div class="controls">
-            <button class="btn btn-alarm" id="alarmBtn" onclick="toggleAlarm()">🚨 Alarme OFF</button>
+            <button class="btn btn-alarm" id="alarmBtn" onclick="toggleAlarm()">
+                🚨 Alarme Distance OFF
+            </button>
+            
+            <button class="btn btn-buzzer" id="buzzerBtn" onclick="toggleBuzzer()">
+                🔔 Buzzer Manuel OFF
+            </button>
         </div>
         
         <div class="timestamp">Dernière mise à jour : <span id="lastUpdate">--</span></div>
@@ -116,6 +141,7 @@
 
     <script>
         let alarmState = false;
+        let buzzerState = false;
 
         function updateData() {
             fetch('/api/dashboard')
@@ -150,10 +176,32 @@
             .then(data => {
                 if (alarmState) {
                     btn.classList.add('active');
-                    btn.textContent = '🚨 Alarme ON';
+                    btn.textContent = '🚨 Alarme Distance ON';
                 } else {
                     btn.classList.remove('active');
-                    btn.textContent = '🚨 Alarme OFF';
+                    btn.textContent = '🚨 Alarme Distance OFF';
+                }
+            })
+            .catch(error => console.error('Erreur:', error));
+        }
+
+        function toggleBuzzer() {
+            buzzerState = !buzzerState;
+            const btn = document.getElementById('buzzerBtn');
+            
+            fetch('/api/buzzer', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({state: buzzerState ? 'ON' : 'OFF'})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (buzzerState) {
+                    btn.classList.add('active');
+                    btn.textContent = '🔔 Buzzer Manuel ON';
+                } else {
+                    btn.classList.remove('active');
+                    btn.textContent = '🔔 Buzzer Manuel OFF';
                 }
             })
             .catch(error => console.error('Erreur:', error));
