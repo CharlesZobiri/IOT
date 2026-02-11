@@ -1,18 +1,3 @@
-Le fichier index.html n'existe toujours pas. Vérifions et créons-le.
-
-🔍 Diagnostic
-1. Vérifier si index.html existe
-bash
-ls -lh ~/IOT/api_rest/templates/index.html
-Si tu vois "No such file or directory", le fichier n'existe pas.
-
-2. Créer le fichier directement avec cat
-bash
-# Créer le dossier
-mkdir -p ~/IOT/api_rest/templates
-
-# Créer index.html avec cat (plus fiable que nano)
-cat > ~/IOT/api_rest/templates/index.html << 'ENDOFFILE'
 <!DOCTYPE html>
 <html lang="fr">
 <head>
