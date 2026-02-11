@@ -1,10 +1,12 @@
 // Version Ethernet + MQTT pour Arduino UNO
-// Basée sur le fichier `arduino-uno.ino` avec ajout d'alarme sur changement de distance
+// Contrôle buzzer via 2 modes:
+// 1. server-room/buzzer/cmd → Contrôle direct ON/OFF
+// 2. server-room/alarm/cmd → Alarme distance < 50cm
 
 #include <SPI.h>
 #include <Ethernet.h>
 #include <PubSubClient.h>
-#include <Ultrasonic.h>   // ← Librairie Grove officielle
+#include <Ultrasonic.h>
 
 // ======== ULTRASON GROVE ========
 #define ULTRASONIC_PIN 2
@@ -12,7 +14,8 @@ Ultrasonic ultrasonic(ULTRASONIC_PIN);
 
 // ======== BUZZER ========
 #define BUZZER_PIN 6
-bool alarmeActive = false;
+bool alarmeActive = false;     // Alarme distance via alarm/cmd
+bool buzzerForce = false;      // Contrôle direct via buzzer/cmd
 
 // ======== LUMINOSITE ========
 const int capteur_lum = A0;
@@ -36,41 +39,90 @@ PubSubClient client(ethClient);
 unsigned long lastPublish = 0;
 const long publishInterval = 10000; // 10 sec
 
-// Pour rafraîchir le buzzer toutes les 1s sur la distance
 unsigned long lastDistanceCheck = 0;
 const long distanceCheckInterval = 1000; // 1 sec
 
 // ======== LECTURE DISTANCE ========
 float lireDistance() {
   long distance = ultrasonic.read();
-
   if (distance <= 0 || distance > 400) return -1;
   return distance;
 }
 
 // ======== CALLBACK MQTT ========
 void callback(char* topic, byte* payload, unsigned int length) {
-  String msg="";
-  for (int i=0;i<length;i++) msg+=(char)payload[i];
+  String msg = "";
+  for (int i = 0; i < length; i++) {
+    msg += (char)payload[i];
+  }
+  
+  // Nettoyer les espaces/retours à la ligne
+  msg.trim();
 
-  Serial.print("Message recu : ");
-  Serial.println(msg);
+  Serial.print("Message recu [");
+  Serial.print(topic);
+  Serial.print("]: '");
+  Serial.print(msg);
+  Serial.print("' (length=");
+  Serial.print(length);
+  Serial.println(")");
+  
+  // Debug: afficher chaque caractère
+  Serial.print("Bytes: ");
+  for (int i = 0; i < length; i++) {
+    Serial.print((int)payload[i]);
+    Serial.print(" ");
+  }
+  Serial.println();
 
-  // 🔔 COMMANDE BUZZER
+  // 🔔 COMMANDE BUZZER DIRECT (priorité haute)
+  if (String(topic) == "server-room/buzzer/cmd") {
+    
+    // Comparer avec trim() et ignorer la casse
+    msg.toUpperCase();
+    
+    if (msg == "ON") {
+      buzzerForce = true;
+      tone(BUZZER_PIN, 2000);
+      Serial.println("🔔 BUZZER FORCE ON");
+    }
+    else if (msg == "OFF") {
+      buzzerForce = false;
+      noTone(BUZZER_PIN);
+      Serial.println("🔕 BUZZER FORCE OFF");
+    }
+    else {
+      Serial.print("⚠️ Commande inconnue: '");
+      Serial.print(msg);
+      Serial.println("'");
+    }
+  }
+
+  // 🚨 COMMANDE ALARME DISTANCE
   if (String(topic) == "server-room/alarm/cmd") {
-
+    
+    msg.toUpperCase();
+    
     if (msg == "ON") {
       alarmeActive = true;
-      Serial.println("ALARME ACTIVEE");
+      Serial.println("✅ ALARME DISTANCE ACTIVEE");
     }
-
-    if (msg == "OFF") {
+    else if (msg == "OFF") {
       alarmeActive = false;
-      noTone(BUZZER_PIN);
-      Serial.println("ALARME DESACTIVEE");
+      // Éteindre le buzzer seulement si pas en mode force
+      if (!buzzerForce) {
+        noTone(BUZZER_PIN);
+      }
+      Serial.println("❌ ALARME DISTANCE DESACTIVEE");
+    }
+    else {
+      Serial.print("⚠️ Commande alarme inconnue: '");
+      Serial.print(msg);
+      Serial.println("'");
     }
   }
 }
+
 
 // ======== RECONNEXION MQTT ========
 void reconnect_mqtt() {
@@ -79,6 +131,8 @@ void reconnect_mqtt() {
     if (client.connect("Arduino-IOT", mqtt_user, mqtt_pass)) {
       Serial.println("OK");
       client.subscribe("server-room/alarm/cmd");
+      client.subscribe("server-room/buzzer/cmd");
+      Serial.println("Abonne a: alarm/cmd, buzzer/cmd");
     } else {
       Serial.print("Erreur rc=");
       Serial.print(client.state());
@@ -95,17 +149,21 @@ void setup() {
   pinMode(BUZZER_PIN, OUTPUT);
   digitalWrite(BUZZER_PIN, LOW);
 
+  Serial.println("=== Arduino Server Room ===");
   Serial.println("Initialisation Ethernet...");
   Ethernet.begin(mac, ip, gateway, gateway, subnet);
   delay(1500);
 
-  Serial.print("IP Arduino : ");
+  Serial.print("IP Arduino: ");
   Serial.println(Ethernet.localIP());
 
   client.setServer(mqtt_server, mqtt_port);
   client.setCallback(callback);
 
-  Serial.println("Arduino pret !");
+  Serial.println("Arduino pret!");
+  Serial.println("Modes buzzer:");
+  Serial.println("  1. buzzer/cmd → Force ON/OFF");
+  Serial.println("  2. alarm/cmd → Auto si distance < 50cm");
 }
 
 // ======== LOOP ========
@@ -118,29 +176,36 @@ void loop() {
 
   unsigned long now = millis();
 
-  // Rafraîchit la logique du buzzer basée sur la distance tous les 1s
+  // ✅ Gestion alarme distance toutes les 1 seconde
   if (now - lastDistanceCheck >= distanceCheckInterval) {
     lastDistanceCheck = now;
     float distance = lireDistance();
 
-    // 👉 Déclenche le buzzer uniquement si la distance est < 50cm, sinon rien. Rafraîchissement toutes les 1s.
-    if (distance > 0 && distance < 50) {
-      alarmeActive = true;
-    } else {
-      alarmeActive = false;
-    }
-
-    Serial.print("Distance pour buzzer = ");
+    Serial.print("Distance = ");
     Serial.print(distance);
-    Serial.println(" cm");
+    Serial.print(" cm | Alarme = ");
+    Serial.print(alarmeActive ? "ON" : "OFF");
+    Serial.print(" | Buzzer Force = ");
+    Serial.println(buzzerForce ? "ON" : "OFF");
+
+    // 🔔 Logique du buzzer (priorité: force > alarme distance)
+    if (buzzerForce) {
+      // Mode force activé → buzzer reste ON quoi qu'il arrive
+      tone(BUZZER_PIN, 2000);
+    }
+    else if (alarmeActive && distance > 0 && distance < 50) {
+      // Alarme distance activée ET objet proche
+      tone(BUZZER_PIN, 2000);
+      Serial.println("  🚨 ALARME: Objet detecte!");
+    }
+    else {
+      // Aucune condition → éteindre
+      noTone(BUZZER_PIN);
+    }
   }
 
-  // 🔔 Gestion buzzer continu (activé soit par MQTT, soit par changement de distance)
-  if (alarmeActive) tone(BUZZER_PIN, 2000);
-  else noTone(BUZZER_PIN);
-
+  // 📡 Publication MQTT toutes les 10 secondes
   if (now - lastPublish >= publishInterval) {
-
     lastPublish = now;
 
     // ===== LUMINOSITE =====
@@ -154,14 +219,14 @@ void loop() {
 
     // ===== DISTANCE =====
     float distance = lireDistance();
-
     Serial.print("Distance (publication) = ");
     Serial.print(distance);
     Serial.println(" cm");
 
-    // Publication MQTT
     char distStr[10];
     dtostrf(distance, 4, 2, distStr);
     client.publish("server-room/distance", distStr);
+    
+    Serial.println("--- Cycle publication termine ---");
   }
 }
