@@ -7,6 +7,10 @@
 #define ULTRASONIC_PIN 2
 Ultrasonic ultrasonic(ULTRASONIC_PIN);
 
+// ======== BUZZER ========
+#define BUZZER_PIN 6
+bool alarmeActive = false;
+
 // ======== LUMINOSITE ========
 const int capteur_lum = A0;
 int analog_lum;
@@ -31,11 +35,9 @@ const long publishInterval = 10000; // 10 sec
 
 // ======== LECTURE DISTANCE ========
 float lireDistance() {
-  long distance = ultrasonic.read();   // ← correction ici
+  long distance = ultrasonic.read();
 
-  if (distance <= 0 || distance > 400) {
-    return -1;
-  }
+  if (distance <= 0 || distance > 400) return -1;
   return distance;
 }
 
@@ -46,6 +48,21 @@ void callback(char* topic, byte* payload, unsigned int length) {
 
   Serial.print("Message recu : ");
   Serial.println(msg);
+
+  // 🔔 COMMANDE BUZZER
+  if (String(topic) == "server-room/alarm/cmd") {
+
+    if (msg == "ON") {
+      alarmeActive = true;
+      Serial.println("ALARME ACTIVEE");
+    }
+
+    if (msg == "OFF") {
+      alarmeActive = false;
+      noTone(BUZZER_PIN);
+      Serial.println("ALARME DESACTIVEE");
+    }
+  }
 }
 
 // ======== RECONNEXION MQTT ========
@@ -68,6 +85,9 @@ void reconnect_mqtt() {
 void setup() {
   Serial.begin(9600);
 
+  pinMode(BUZZER_PIN, OUTPUT);
+  digitalWrite(BUZZER_PIN, LOW);
+
   Serial.println("Initialisation Ethernet...");
   Ethernet.begin(mac, ip, gateway, gateway, subnet);
   delay(1500);
@@ -89,6 +109,10 @@ void loop() {
   if (!client.connected()) reconnect_mqtt();
   client.loop();
 
+  // 🔔 Gestion buzzer continu
+  if (alarmeActive) tone(BUZZER_PIN, 2000);
+  else noTone(BUZZER_PIN);
+
   unsigned long now = millis();
   if (now - lastPublish >= publishInterval) {
 
@@ -103,7 +127,7 @@ void loop() {
     itoa(analog_lum, lightStr, 10);
     client.publish("server-room/light", lightStr);
 
-    // ===== DISTANCE GROVE =====
+    // ===== DISTANCE =====
     float distance = lireDistance();
 
     Serial.print("Distance = ");
