@@ -1,0 +1,25 @@
+# Admin = lecture/écriture partout
+user admin
+topic readwrite #
+
+# ESP32 = DHT11 (température + humidité) + commandes alarme
+user esp32
+topic read server-room/alarm/cmd
+topic write server-room/temperature
+topic write server-room/humidity
+
+# Arduino = luminosité + distance + commandes alarme
+user arduino
+topic read server-room/alarm/cmd
+topic write server-room/light
+topic write server-room/distance
+
+# Dashboard = lit tout, écrit commandes
+user dashboard
+topic read server-room/#
+topic write server-room/alarm/cmd
+topic write server-room/camera/cmd
+
+# Logger = lit tout
+user logger
+topic read server-room/#

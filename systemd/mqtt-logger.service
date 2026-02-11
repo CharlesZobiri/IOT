@@ -1,0 +1,14 @@
+[Unit]
+Description=MQTT to MariaDB Logger
+After=network.target mosquitto.service mariadb.service
+
+[Service]
+Type=simple
+User=dev
+WorkingDirectory=/home/dev/mqtt_logger
+ExecStart=/usr/bin/python3 /home/dev/mqtt_logger/mqtt_logger.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
