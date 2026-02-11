@@ -1,3 +1,6 @@
+// Version Ethernet + MQTT pour Arduino UNO
+// Basée sur le fichier `arduino-uno.ino` avec ajout d'alarme sur changement de distance
+
 #include <SPI.h>
 #include <Ethernet.h>
 #include <PubSubClient.h>
@@ -32,6 +35,10 @@ PubSubClient client(ethClient);
 
 unsigned long lastPublish = 0;
 const long publishInterval = 10000; // 10 sec
+
+// Pour rafraîchir le buzzer toutes les 1s sur la distance
+unsigned long lastDistanceCheck = 0;
+const long distanceCheckInterval = 1000; // 1 sec
 
 // ======== LECTURE DISTANCE ========
 float lireDistance() {
@@ -109,11 +116,29 @@ void loop() {
   if (!client.connected()) reconnect_mqtt();
   client.loop();
 
-  // 🔔 Gestion buzzer continu
+  unsigned long now = millis();
+
+  // Rafraîchit la logique du buzzer basée sur la distance tous les 1s
+  if (now - lastDistanceCheck >= distanceCheckInterval) {
+    lastDistanceCheck = now;
+    float distance = lireDistance();
+
+    // 👉 Déclenche le buzzer uniquement si la distance est < 50cm, sinon rien. Rafraîchissement toutes les 1s.
+    if (distance > 0 && distance < 50) {
+      alarmeActive = true;
+    } else {
+      alarmeActive = false;
+    }
+
+    Serial.print("Distance pour buzzer = ");
+    Serial.print(distance);
+    Serial.println(" cm");
+  }
+
+  // 🔔 Gestion buzzer continu (activé soit par MQTT, soit par changement de distance)
   if (alarmeActive) tone(BUZZER_PIN, 2000);
   else noTone(BUZZER_PIN);
 
-  unsigned long now = millis();
   if (now - lastPublish >= publishInterval) {
 
     lastPublish = now;
@@ -130,10 +155,11 @@ void loop() {
     // ===== DISTANCE =====
     float distance = lireDistance();
 
-    Serial.print("Distance = ");
+    Serial.print("Distance (publication) = ");
     Serial.print(distance);
     Serial.println(" cm");
 
+    // Publication MQTT
     char distStr[10];
     dtostrf(distance, 4, 2, distStr);
     client.publish("server-room/distance", distStr);
