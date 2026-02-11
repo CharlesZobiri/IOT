@@ -1,3 +1,18 @@
+Le fichier index.html n'existe toujours pas. Vérifions et créons-le.
+
+🔍 Diagnostic
+1. Vérifier si index.html existe
+bash
+ls -lh ~/IOT/api_rest/templates/index.html
+Si tu vois "No such file or directory", le fichier n'existe pas.
+
+2. Créer le fichier directement avec cat
+bash
+# Créer le dossier
+mkdir -p ~/IOT/api_rest/templates
+
+# Créer index.html avec cat (plus fiable que nano)
+cat > ~/IOT/api_rest/templates/index.html << 'ENDOFFILE'
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -12,10 +27,7 @@
             padding: 20px;
             min-height: 100vh;
         }
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-        }
+        .container { max-width: 1400px; margin: 0 auto; }
         h1 {
             color: white;
             text-align: center;
@@ -37,11 +49,7 @@
             transition: transform 0.3s;
         }
         .card:hover { transform: translateY(-5px); }
-        .card-icon {
-            font-size: 3em;
-            text-align: center;
-            margin-bottom: 15px;
-        }
+        .card-icon { font-size: 3em; text-align: center; margin-bottom: 15px; }
         .card-title {
             font-size: 1.2em;
             color: #333;
@@ -55,18 +63,8 @@
             text-align: center;
             font-weight: bold;
         }
-        .card-unit {
-            font-size: 0.8em;
-            color: #666;
-            text-align: center;
-            margin-top: 5px;
-        }
-        .controls {
-            display: flex;
-            gap: 15px;
-            justify-content: center;
-            flex-wrap: wrap;
-        }
+        .card-unit { font-size: 0.8em; color: #666; text-align: center; margin-top: 5px; }
+        .controls { display: flex; gap: 15px; justify-content: center; flex-wrap: wrap; }
         .btn {
             padding: 15px 30px;
             font-size: 1.1em;
@@ -77,23 +75,10 @@
             box-shadow: 0 5px 15px rgba(0,0,0,0.2);
             font-weight: bold;
         }
-        .btn-alarm {
-            background: #e74c3c;
-            color: white;
-        }
-        .btn-alarm.active {
-            background: #27ae60;
-        }
-        .btn:hover {
-            transform: scale(1.05);
-            box-shadow: 0 8px 20px rgba(0,0,0,0.3);
-        }
-        .timestamp {
-            color: white;
-            text-align: center;
-            margin-top: 20px;
-            font-size: 0.9em;
-        }
+        .btn-alarm { background: #e74c3c; color: white; }
+        .btn-alarm.active { background: #27ae60; }
+        .btn:hover { transform: scale(1.05); box-shadow: 0 8px 20px rgba(0,0,0,0.3); }
+        .timestamp { color: white; text-align: center; margin-top: 20px; font-size: 0.9em; }
     </style>
 </head>
 <body>
@@ -138,14 +123,10 @@
         </div>
         
         <div class="controls">
-            <button class="btn btn-alarm" id="alarmBtn" onclick="toggleAlarm()">
-                🚨 Alarme OFF
-            </button>
+            <button class="btn btn-alarm" id="alarmBtn" onclick="toggleAlarm()">🚨 Alarme OFF</button>
         </div>
         
-        <div class="timestamp">
-            Dernière mise à jour : <span id="lastUpdate">--</span>
-        </div>
+        <div class="timestamp">Dernière mise à jour : <span id="lastUpdate">--</span></div>
     </div>
 
     <script>
@@ -157,19 +138,14 @@
                 .then(data => {
                     document.getElementById('temp').textContent = 
                         data.temperature ? data.temperature.value.toFixed(1) : '--';
-                    
                     document.getElementById('humidity').textContent = 
                         data.humidity ? data.humidity.value.toFixed(1) : '--';
-                    
                     document.getElementById('light').textContent = 
                         data.light ? Math.round(data.light.value) : '--';
-                    
                     document.getElementById('distance').textContent = 
                         data.distance ? data.distance.value.toFixed(1) : '--';
-                    
                     document.getElementById('motion').textContent = 
                         data.motion ? '✅ OUI' : '❌ NON';
-                    
                     document.getElementById('lastUpdate').textContent = 
                         new Date().toLocaleTimeString('fr-FR');
                 })
@@ -198,7 +174,6 @@
             .catch(error => console.error('Erreur:', error));
         }
 
-        // Mise à jour automatique toutes les 5 secondes
         updateData();
         setInterval(updateData, 5000);
     </script>
