@@ -1,51 +1,3 @@
-// Version Ethernet + MQTT pour Arduino UNO
-// Alarme distance contrôlée par dashboard via MQTT
-
-#include <SPI.h>
-#include <Ethernet.h>
-#include <PubSubClient.h>
-#include <Ultrasonic.h>
-
-// ======== ULTRASON GROVE ========
-#define ULTRASONIC_PIN 2
-Ultrasonic ultrasonic(ULTRASONIC_PIN);
-
-// ======== BUZZER ========
-#define BUZZER_PIN 6
-bool alarmeActive = false;  // ← Contrôlé par MQTT uniquement
-
-// ======== LUMINOSITE ========
-const int capteur_lum = A0;
-int analog_lum;
-
-// ======== RESEAU ETHERNET ========
-byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
-IPAddress ip(10,160,24,100);
-IPAddress gateway(10,160,24,1);
-IPAddress subnet(255,255,252,0);
-
-// ======== MQTT ========
-const char* mqtt_server = "10.160.24.188";
-const int mqtt_port = 1883;
-const char* mqtt_user = "arduino";
-const char* mqtt_pass = "arduinopass";
-
-EthernetClient ethClient;
-PubSubClient client(ethClient);
-
-unsigned long lastPublish = 0;
-const long publishInterval = 10000; // 10 sec
-
-unsigned long lastDistanceCheck = 0;
-const long distanceCheckInterval = 1000; // 1 sec
-
-// ======== LECTURE DISTANCE ========
-float lireDistance() {
-  long distance = ultrasonic.read();
-  if (distance <= 0 || distance > 400) return -1;
-  return distance;
-}
-
 // ======== CALLBACK MQTT ========
 void callback(char* topic, byte* payload, unsigned int length) {
   String msg="";
@@ -56,7 +8,19 @@ void callback(char* topic, byte* payload, unsigned int length) {
   Serial.print("]: ");
   Serial.println(msg);
 
-  // 🔔 COMMANDE ALARME DISTANCE
+  // 🔔 COMMANDE BUZZER DIRECT
+  if (String(topic) == "server-room/buzzer/cmd") {
+    if (msg == "ON") {
+      tone(BUZZER_PIN, 2000);
+      Serial.println("🚨 BUZZER ACTIVE");
+    }
+    else if (msg == "OFF") {
+      noTone(BUZZER_PIN);
+      Serial.println("✅ BUZZER DESACTIVE");
+    }
+  }
+
+  // 🔔 COMMANDE ALARME DISTANCE (ancienne logique)
   if (String(topic) == "server-room/alarm/cmd") {
     if (msg == "ON") {
       alarmeActive = true;
@@ -77,6 +41,7 @@ void reconnect_mqtt() {
     if (client.connect("Arduino-IOT", mqtt_user, mqtt_pass)) {
       Serial.println("OK");
       client.subscribe("server-room/alarm/cmd");
+      client.subscribe("server-room/buzzer/cmd");  // ← NOUVEAU
     } else {
       Serial.print("Erreur rc=");
       Serial.print(client.state());
@@ -84,26 +49,6 @@ void reconnect_mqtt() {
       delay(5000);
     }
   }
-}
-
-// ======== SETUP ========
-void setup() {
-  Serial.begin(9600);
-
-  pinMode(BUZZER_PIN, OUTPUT);
-  digitalWrite(BUZZER_PIN, LOW);
-
-  Serial.println("Initialisation Ethernet...");
-  Ethernet.begin(mac, ip, gateway, gateway, subnet);
-  delay(1500);
-
-  Serial.print("IP Arduino : ");
-  Serial.println(Ethernet.localIP());
-
-  client.setServer(mqtt_server, mqtt_port);
-  client.setCallback(callback);
-
-  Serial.println("Arduino pret !");
 }
 
 // ======== LOOP ========
@@ -116,7 +61,7 @@ void loop() {
 
   unsigned long now = millis();
 
-  // ✅ Vérifie la distance toutes les 1 seconde
+  // ✅ Vérifie la distance toutes les 1 seconde SEULEMENT pour l'alarme distance
   if (now - lastDistanceCheck >= distanceCheckInterval) {
     lastDistanceCheck = now;
     float distance = lireDistance();
@@ -126,13 +71,15 @@ void loop() {
     Serial.print(" cm | Alarme = ");
     Serial.println(alarmeActive ? "ACTIVE" : "INACTIVE");
 
-    // 🔔 Buzzer SEULEMENT si alarme activée ET distance < 50cm
+    // 🔔 Buzzer SEULEMENT si alarme distance activée ET distance < 50cm
     if (alarmeActive && distance > 0 && distance < 50) {
       tone(BUZZER_PIN, 2000);
-      Serial.println("🚨 BUZZER ON (distance < 50cm)");
-    } else {
+      Serial.println("🚨 ALARME DISTANCE: BUZZER ON");
+    } else if (alarmeActive) {
+      // Si alarme active mais distance > 50cm, éteindre
       noTone(BUZZER_PIN);
     }
+    // Note: si alarmeActive == false, le buzzer peut être contrôlé par buzzer/cmd
   }
 
   // 📡 Publication MQTT toutes les 10 secondes
