@@ -102,5 +102,54 @@ def history(sensor):
     
     return jsonify(rows)
 
+# ========== ENDPOINTS PHOTOS ==========
+import os
+from flask import send_file
+
+PHOTO_DIR = "/home/dev/IOT/camera_motion/photos"
+
+@app.route('/api/photos', methods=['GET'])
+def list_photos():
+    """Retourne les 3 dernières photos"""
+    try:
+        if not os.path.exists(PHOTO_DIR):
+            return jsonify([])
+        
+        # Lister tous les fichiers .jpg
+        photos = [f for f in os.listdir(PHOTO_DIR) if f.endswith('.jpg')]
+        
+        # Trier par date de modification (plus récent d'abord)
+        photos.sort(key=lambda x: os.path.getmtime(os.path.join(PHOTO_DIR, x)), reverse=True)
+        
+        # Prendre les 3 dernières
+        recent_photos = photos[:3]
+        
+        # Retourner avec timestamp
+        result = []
+        for photo in recent_photos:
+            filepath = os.path.join(PHOTO_DIR, photo)
+            result.append({
+                'filename': photo,
+                'timestamp': os.path.getmtime(filepath),
+                'url': f'/api/photo/{photo}'
+            })
+        
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/photo/<filename>', methods=['GET'])
+def get_photo(filename):
+    """Sert une photo spécifique"""
+    try:
+        filepath = os.path.join(PHOTO_DIR, filename)
+        if os.path.exists(filepath) and filename.endswith('.jpg'):
+            return send_file(filepath, mimetype='image/jpeg')
+        else:
+            return jsonify({'error': 'Photo not found'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=False)
