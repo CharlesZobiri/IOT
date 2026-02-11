@@ -1,12 +1,12 @@
 [Unit]
 Description=Server Room API REST
-After=network.target mariadb.service
+After=network.target mariadb.service mosquitto.service
 
 [Service]
 Type=simple
 User=dev
-WorkingDirectory=/home/dev/api_rest
-ExecStart=/usr/bin/python3 /home/dev/api_rest/api.py
+WorkingDirectory=/home/dev/IOT/api_rest
+ExecStart=/usr/bin/python3 /home/dev/IOT/api_rest/api.py
 Restart=always
 RestartSec=10
 

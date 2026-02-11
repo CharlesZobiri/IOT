@@ -5,8 +5,8 @@ After=network.target mosquitto.service mariadb.service
 [Service]
 Type=simple
 User=dev
-WorkingDirectory=/home/dev/mqtt_logger
-ExecStart=/usr/bin/python3 /home/dev/mqtt_logger/mqtt_logger.py
+WorkingDirectory=/home/dev/IOT/mqtt_logger
+ExecStart=/usr/bin/python3 /home/dev/IOT/mqtt_logger/mqtt_logger.py
 Restart=always
 RestartSec=10
 

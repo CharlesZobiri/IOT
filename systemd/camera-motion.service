@@ -1,0 +1,14 @@
+[Unit]
+Description=Camera Motion Detection
+After=network.target mosquitto.service
+
+[Service]
+Type=simple
+User=dev
+WorkingDirectory=/home/dev/IOT/camera_motion
+ExecStart=/usr/bin/python3 /home/dev/IOT/camera_motion/motion_detector.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
