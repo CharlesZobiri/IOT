@@ -28,6 +28,11 @@ def get_db():
         cursorclass=pymysql.cursors.DictCursor
     )
 
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+
 @app.route('/api/dashboard', methods=['GET'])
 def dashboard():
     conn = get_db()
