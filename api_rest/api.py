@@ -3,6 +3,7 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 import pymysql
 import paho.mqtt.publish as publish
+from flask import render_template
 
 app = Flask(__name__)
 CORS(app)
