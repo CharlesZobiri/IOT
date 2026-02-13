@@ -195,9 +195,30 @@
         let alarmState = false;
         let buzzerState = false;
 
+        function getApiToken() {
+            let token = localStorage.getItem('api_token') || '';
+            if (!token) {
+                token = prompt('API Token:') || '';
+                token = token.trim();
+                if (token) {
+                    localStorage.setItem('api_token', token);
+                }
+            }
+            return token;
+        }
+
+        function apiFetch(url, options = {}) {
+            const token = getApiToken();
+            const headers = Object.assign({}, options.headers || {});
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+            return fetch(url, Object.assign({}, options, { headers }));
+        }
+
         function updateData() {
             // Mise à jour capteurs
-            fetch('/api/dashboard')
+            apiFetch('/api/dashboard')
                 .then(response => response.json())
                 .then(data => {
                     document.getElementById('temp').textContent = 
@@ -220,7 +241,7 @@
         }
 
         function updatePhotos() {
-            fetch('/api/photos')
+            apiFetch('/api/photos')
                 .then(response => response.json())
                 .then(photos => {
                     const grid = document.getElementById('photosGrid');
@@ -234,11 +255,13 @@
                     photos.forEach(photo => {
                         const date = new Date(photo.timestamp * 1000);
                         const timeStr = date.toLocaleString('fr-FR');
+                        const token = getApiToken();
+                        const imgUrl = token ? `${photo.url}?token=${encodeURIComponent(token)}` : photo.url;
                         
                         const card = document.createElement('div');
                         card.className = 'photo-card';
                         card.innerHTML = `
-                            <img src="${photo.url}" alt="Détection de mouvement">
+                            <img src="${imgUrl}" alt="Détection de mouvement">
                             <div class="photo-info">
                                 📅 ${timeStr}
                             </div>
@@ -257,7 +280,7 @@
             alarmState = !alarmState;
             const btn = document.getElementById('alarmBtn');
             
-            fetch('/api/alarm', {
+            apiFetch('/api/alarm', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({state: alarmState ? 'ON' : 'OFF'})
@@ -279,7 +302,7 @@
             buzzerState = !buzzerState;
             const btn = document.getElementById('buzzerBtn');
             
-            fetch('/api/buzzer', {
+            apiFetch('/api/buzzer', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({state: buzzerState ? 'ON' : 'OFF'})
